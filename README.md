@@ -11,6 +11,8 @@ $ meteor add cottz:subscache
 
 ## Quick Start
 ```js
+import SubsCache from 'meteor/cottz:subscache';
+
 APPCache = new SubsCache({
   expireIn: 10,
   inAll: false
@@ -18,7 +20,7 @@ APPCache = new SubsCache({
 
 // publish
 Meteor.publish('users', function (skip) {
-	return Meteor.users.find({}, {skip: skip});
+  return Meteor.users.find({}, {skip: skip});
 });
 
 // Router
@@ -54,7 +56,7 @@ when `inAll` is true always get the documents that match your query, if the user
 ### subscribe
 he subscription works exactly like the subscription in Meteor
 ```js
-APPCache.subscribe('users', params)
+APPCache.subscribe('users', params);
 ```
 
 ### find() and findOne()
