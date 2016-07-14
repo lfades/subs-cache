@@ -1,13 +1,13 @@
 Package.describe({
   name: 'cottz:subscache',
-  version: '0.0.5',
+  version: '0.0.7',
   summary: 'Save a copy of your documents in the client and use them even without ready subscriptions',
   documentation: 'README.md',
   git: 'https://github.com/Goluis/subs-cache'
 });
 
 Package.onUse(function(api) {
-  api.versionsFrom('1.3.3');
+  api.versionsFrom('1.3.4.4');
 
   api.use('ecmascript');
   api.use([

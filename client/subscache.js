@@ -1,5 +1,4 @@
 import { _ } from 'meteor/underscore';
-import { Tracker } from 'meteor/tracker';
 import SubCache from './subscription';
 
 class SubsCache {
@@ -41,35 +40,29 @@ class SubsCache {
   _removeOld () {
     if (!this._removeInterval) return;
 
-    Tracker.nonreactive(() => {
-      const time = (new Date()).getTime() - this._removeInterval;
+    const time = (new Date()).getTime() - this._removeInterval;
 
-      if (this._lastRemoveAt > time) return;
-      this._lastRemoveAt = time + this._removeInterval;
+    if (this._lastRemoveAt > time) return;
+    this._lastRemoveAt = time + this._removeInterval;
 
-      _.each(this._subscriptions, (sub, subName) => {
-        let params = sub._subParams;
+    _.each(this._subscriptions, (sub, subName) => {
+      let params = sub._subParams;
 
-        _.each(sub._collections, (c, name) => {
-          if (!c.collection.remove({
-            _to: {$ne: params},
-            _toAt: {$lt: time}
-          })) return;
+      _.each(sub._collections, (c, name) => {
+        if (!c.collection.remove({
+          _to: {$ne: params},
+          _toAt: {$lt: time}
+        })) return;
 
-          const history = sub._history;
-          _.each(history, (at, _params) => {
-            if (_params !== params && at < time) {
-              delete history[_params];
-              c.collection.update({_to: _params}, {
-                $pull: {_to: _params}
-              }, {multi: true});
-            }
-          });
-          // if (!sub._subReady && !c.collection.find().count())
-          //  delete sub._collections[name]
+        const history = sub._history;
+        _.each(history, (at, _params) => {
+          if (_params !== params && at < time) {
+            delete history[_params];
+            c.collection.update({_to: _params}, {
+              $pull: {_to: _params}
+            }, {multi: true});
+          }
         });
-        // if (_.isEmpty(sub._collections)) {
-        //  delete this._subscriptions[subName]
       });
     });
   }

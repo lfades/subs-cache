@@ -4,6 +4,7 @@ import { Mongo } from 'meteor/mongo';
 import { Tracker } from 'meteor/tracker';
 import { ReactiveVar } from 'meteor/reactive-var';
 import CollectionCache from './collection';
+import Stream from './stream';
 
 class SubCache {
   constructor (cache, name) {
@@ -15,6 +16,7 @@ class SubCache {
     this._onSub = new Tracker.Dependency;
 
     this._params = new ReactiveVar();
+    this._subReady = new ReactiveVar(true);
     this._history = {};
     this._subHistory = [];
   }
@@ -35,21 +37,21 @@ class SubCache {
     ) callbacks = params.pop();
 
     const JSONParams = JSON.stringify(params);
+    let subReady = false;
+    let ready = false;
 
     this._subscribing = true;
-    this._subReady = false;
     this._subParams = JSONParams;
     this._subHistory.push(JSONParams);
 
     if (this._history[JSONParams]) {
-      this._subReady = true;
+      subReady = true;
       this._params.set(this._subParams);
     }
     this._history[JSONParams] = (new Date()).getTime();
 
     this._onSub.changed();
 
-    let ready = false;
     const noLongerExist = this.noLongerExist(JSONParams);
 
     const sub = Meteor.subscribe(this.name, ...params, {
@@ -60,7 +62,7 @@ class SubCache {
 
         if (!ready) {
           ready = true;
-          this._subReady = true;
+          subReady = true;
           this._params.set(this._subParams);
         }
 
@@ -71,23 +73,33 @@ class SubCache {
       },
       onStop: (error) => {
         this._sub = null;
+        this._subReady.set(false);
 
         if (ready) {
           this._next = this._subHistory.shift();
-          this._subReady = false;
+          subReady = false;
         } else {
           // Sometimes the subscription is canceled before it is ready
-          Stream.on(sub.subscriptionId, () => {
+          Stream.onReady(sub.subscriptionId, () => {
             this._next = this._subHistory.shift();
           });
         }
-
         callbacks.onStop && callbacks.onStop(error);
       }
     });
 
+    Stream.onStop(sub.subscriptionId, () => {
+      this._subReady.set(true);
+    });
     this._sub = sub;
-    return sub;
+
+    return {
+      ready: () => {
+        return subReady || sub.ready();
+      },
+      stop () { return sub.stop(); },
+      subscriptionId: sub.subscriptionId
+    };
   }
   noLongerExist (JSONParams) {
     return Tracker.nonreactive(() => {

@@ -22,6 +22,7 @@ class CollectionCache {
     }
     this._omitDefault(options);
     this._track();
+
     Tracker.nonreactive(() => this.observe());
     /*
      * if inAll is not in options and neither _one or by default inAll is true
@@ -34,8 +35,8 @@ class CollectionCache {
       options.inAll = true;
 
     return this.collection.find(sub._subParams && !options.inAll
-    ? _.extend({_to: sub._params.get() || sub._subParams}, selector)
-    : selector, options);
+      ? _.extend({_to: sub._params.get() || sub._subParams}, selector)
+      : selector, options);
   }
   findOne (selector = {}, options = {}) {
     options.limit = 1;
@@ -43,39 +44,53 @@ class CollectionCache {
     return this.find(selector, options).fetch()[0];
   }
   observe () {
-    if (!this._observe) {
-      let sub = this.sub;
+    if (!this._tracker) {
+      const {sub} = this;
+      const observe = () => (
+        Tracker.nonreactive(() => (
+          this.parentColl.find().observeChanges({
+            added: (id, doc) => {
+              doc._toAt = (new Date()).getTime();
 
-      this._observe = this.parentColl.find().observeChanges({
-        added: (id, doc) => {
-          doc._toAt = (new Date()).getTime();
+              const lastDoc = this.collection.findOne({_id: id});
+              const to = sub._next || sub._subParams;
 
-          const lastDoc = this.collection.findOne({_id: id});
-          const to = sub._next || sub._subParams;
-
-          if (lastDoc) {
-            const op = {$set: doc};
-            if (!_.contains(lastDoc._to, to))
-              op.$push = {_to: to};
-            this.collection.update({_id: id}, op);
-          } else {
-            doc._id = id;
-            doc._to = [to];
-            this.collection.insert(doc);
-          }
-          removing = false;
-        },
-        changed: (id, doc) => {
-          this.collection.update({_id: id}, {$set: doc});
-        },
-        removed: (id) => {
-          if (sub._subReady && !sub._subscribing);
-            this.collection.remove(id);
+              if (lastDoc) {
+                const op = {$set: doc};
+                if (!_.contains(lastDoc._to, to))
+                  op.$push = {_to: to};
+                this.collection.update({_id: id}, op);
+              } else {
+                doc._id = id;
+                doc._to = [to];
+                this.collection.insert(doc);
+              }
+            },
+            changed: (id, doc) => {
+              this.collection.update({_id: id}, {$set: doc});
+            },
+            removed: (id) => {
+              this.collection.remove(id);
+            }
+          })
+        ))
+      );
+      const stop = () => {
+        if (this._observe) {
+          this._observe.stop();
+          this._observe = null;
         }
+      };
+
+      this._tracker = Tracker.autorun(c => {
+        if (sub._subReady.get()) {
+          this._observe = observe();
+        } else {
+          stop();
+        }
+        c.onStop(stop);
       });
     }
-
-    return this._observe;
   }
   _track () {
     if (Tracker.active) {
@@ -83,9 +98,10 @@ class CollectionCache {
       Tracker.onInvalidate(c => {
         Tracker.afterFlush(() => {
           this._observeCount --;
+
           if (c.stopped && !this._observeCount) {
-            this._observe.stop();
-            this._observe = null;
+            this._tracker.stop();
+            this._tracker = null;
           }
         });
       });
