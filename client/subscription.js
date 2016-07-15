@@ -11,14 +11,24 @@ class SubCache {
     this.cache = cache;
     this.name = name;
 
-    this._subscribing = false;
     this._collections = {};
     this._onSub = new Tracker.Dependency;
 
-    this._params = new ReactiveVar();
     this._subReady = new ReactiveVar(true);
     this._history = {};
-    this._subHistory = [];
+
+    this._subHistory = {
+      history: [],
+      push (params) {
+        if (this._lastParams !== params) {
+          this.history.push(params);
+          this._lastParams = params;
+        }
+      },
+      next () {
+        return this.history.shift();
+      }
+    }
   }
   find (collection, ...params) {
     return this.get(collection).find(...params);
@@ -40,8 +50,8 @@ class SubCache {
     let subReady = false;
     let ready = false;
 
-    this._subscribing = true;
     this._subParams = JSONParams;
+    this._params = new ReactiveVar();
     this._subHistory.push(JSONParams);
 
     if (this._history[JSONParams]) {
@@ -53,12 +63,9 @@ class SubCache {
     this._onSub.changed();
 
     const noLongerExist = this.noLongerExist(JSONParams);
-
     const sub = Meteor.subscribe(this.name, ...params, {
       onReady: () => {
         this._next = null;
-        this._subHistory = [];
-        this._subscribing = false;
 
         if (!ready) {
           ready = true;
@@ -76,12 +83,12 @@ class SubCache {
         this._subReady.set(false);
 
         if (ready) {
-          this._next = this._subHistory.shift();
+          this._next = this._subHistory.next();
           subReady = false;
         } else {
           // Sometimes the subscription is canceled before it is ready
           Stream.onReady(sub.subscriptionId, () => {
-            this._next = this._subHistory.shift();
+            this._next = this._subHistory.next();
           });
         }
         callbacks.onStop && callbacks.onStop(error);
@@ -89,6 +96,7 @@ class SubCache {
     });
 
     Stream.onStop(sub.subscriptionId, () => {
+      this._subHistory.history = [];
       this._subReady.set(true);
     });
     this._sub = sub;
