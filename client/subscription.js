@@ -65,8 +65,6 @@ class SubCache {
     const noLongerExist = this.noLongerExist(JSONParams);
     const sub = Meteor.subscribe(this.name, ...params, {
       onReady: () => {
-        this._next = null;
-
         if (!ready) {
           ready = true;
           subReady = true;
@@ -97,6 +95,7 @@ class SubCache {
 
     Stream.onStop(sub.subscriptionId, () => {
       this._subHistory.history = [];
+      this._next = null;
       this._subReady.set(true);
     });
     this._sub = sub;
