@@ -12,14 +12,6 @@ class CollectionCache {
   find (selector = {}, options = {}) {
     const sub = this.sub;
 
-    if (!sub._sub) {
-      if (Tracker.active) {
-        sub._onSub.depend();
-        this._omitDefault(options);
-        return this.collection.find(selector, options);
-      }
-      return this.parentColl.find(selector, options);
-    }
     this._omitDefault(options);
     this._track();
 
