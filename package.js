@@ -1,6 +1,6 @@
 Package.describe({
   name: 'cottz:subscache',
-  version: '0.1.0',
+  version: '0.1.1',
   summary: 'Save a copy of your documents in the client and use them even without ready subscriptions',
   documentation: 'README.md',
   git: 'https://github.com/Goluis/subs-cache'

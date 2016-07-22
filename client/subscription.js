@@ -68,7 +68,6 @@ class SubCache {
         if (!ready) {
           ready = true;
           subReady = true;
-          this._params.set(this._subParams);
         }
 
         this.cache._removeOld();
